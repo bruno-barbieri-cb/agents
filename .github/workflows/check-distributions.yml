@@ -26,10 +26,13 @@ jobs:
             --schemafile schemas/1.0.0/mcp.schema.json \
             src/plugins/portable/mcp.json
 
-      - name: Check distribution builder
+      - name: Check Python
         run: |
-          uvx ruff@0.13.2 check scripts/build-distributions.py
-          uvx ruff@0.13.2 format --check scripts/build-distributions.py
+          uvx ruff@0.13.2 check scripts/build-distributions.py skills/coinbase-paper-trading/scripts tests
+          uvx ruff@0.13.2 format --check scripts/build-distributions.py skills/coinbase-paper-trading/scripts tests
+
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
 
       - name: Build plugin distributions
         run: python3 scripts/build-distributions.py dist
@@ -37,3 +40,9 @@ jobs:
       - name: Verify checksums
         working-directory: dist/site/downloads
         run: sha256sum --check SHA256SUMS
+
+      - name: Build and verify paper-only bundle
+        run: |
+          python3 scripts/build-distributions.py dist-paper --paper-only
+          (cd dist-paper/site/downloads && sha256sum --check SHA256SUMS)
+          (cd dist-paper/site/packages/coinbase-paper-trading-* && sha256sum --check SHA256SUMS)

@@ -1,6 +1,6 @@
 # Coinbase Agents
 
-Skills and plugins for using Coinbase with AI agents. Read market data, manage portfolios, trade, and access paid research through Coinbase MCP or the Coinbase CLI.
+Skills and plugins for using Coinbase with AI agents. Read market data, manage portfolios, trade, and access paid research through Coinbase MCP or the Coinbase CLI, or practice with a local paper-trading simulator.
 
 ## Model Context Protocol (MCP)
 
@@ -27,6 +27,19 @@ For agents with shell access, the optional [`@coinbase/coinbase-cli`](https://ww
 | [Futures](skills/coinbase-futures/SKILL.md) | Eligible CFM dated futures, contract sizing, and risk checks |
 | [x402](skills/coinbase-x402/SKILL.md) | Discover and purchase research within an approved budget |
 | [Watch](skills/coinbase-watch/SKILL.md) | Bounded streaming and monitoring; CLI only |
+| [Paper trading](skills/coinbase-paper-trading/SKILL.md) | Local simulated spot market orders with virtual cash; requires Python 3.11+ and never places real orders |
+
+## Local paper-trading pilot
+
+Start with the [host-neutral paper-trading guide](skills/coinbase-paper-trading/START-HERE.md). It requires an agent-accessible terminal, Python 3.11+ with SQLite, durable local storage, complete Coinbase MCP market-data handoff, and suitable read-only restrictions or financial-action approvals. Chat-only clients and ephemeral code sandboxes without durable storage cannot run this workflow. Unknown persistence blocks setup; a successful file write does not certify host retention.
+
+Build a self-contained paper-only bundle from this checkout:
+
+```sh
+python3 scripts/build-distributions.py dist-paper --paper-only
+```
+
+The versioned ZIP/tar and checksums are under `dist-paper/site/downloads/`. The bundle contains one skill, its guide/references, the local runtime, and the license—not the live-trading skills or any account state. It does not install itself into a host, configure authentication, or change the MCP server. Keep the account's saved profile separate from code so upgrades and fresh conversations resume the same verified account ID. Use the [host QA checklist](skills/coinbase-paper-trading/references/qa.md) before claiming native discovery or persistence for a client.
 
 ## Plugin distributions
 
@@ -90,7 +103,7 @@ hermes plugins enable coinbase
 
 Use the plugin key returned by `list` if different. Follow [Hermes's portable-plugin documentation](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/#portable-agent-plugins-v1-packages) and native OAuth setup. Reuse existing connections rather than adding duplicates.
 
-For standalone skills, use your harness's supported installation method and include the complete `skills/` directory so cross-skill references resolve. Preserve existing installations and settings.
+For the full library's standalone skills, use your harness's supported installation method and include the complete `skills/` directory so cross-skill references resolve. The paper-only bundle above is self-contained and needs no live-skill installation. Preserve existing installations and settings.
 
 ## Safety and support
 
