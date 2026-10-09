@@ -330,8 +330,10 @@ class LauncherProcessCase(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.home = self.tmp / "user home"
         self.home.mkdir()
+        # Static, unusable fixture only; never copy environment/user credentials.
+        # Its presence verifies that the anonymous client ignores netrc.
         (self.home / ".netrc").write_text(
-            f"machine api.coinbase.com login user password {FAKE_SECRET}\n"
+            "machine api.coinbase.com login unused password unusable-netrc-test-value\n"
         )
         site = self.tmp / "site"
         site.mkdir()
@@ -366,6 +368,7 @@ class LauncherProcessCase(unittest.TestCase):
         )
         self.assertNotIn("Traceback", result.stderr)
         self.assertNotIn(FAKE_SECRET, result.stdout + result.stderr)
+        self.assertNotIn("unusable-netrc-test-value", result.stdout + result.stderr)
         data = json.loads(result.stdout)
         self.assertEqual(data["mode"], "PAPER")
         if error:
