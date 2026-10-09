@@ -9,10 +9,10 @@ One set of workflows, two execution interfaces. Remote MCP uses harness-managed 
 
 ## Resolve paper versus live intent first
 
-- For paper, practice, demo, simulated trades, or trading without real money, load [coinbase-paper-trading](../coinbase-paper-trading/SKILL.md) before live-account guidance. It uses read-only MCP market data and a local simulator, not live order tools. A live-only MCP environment does not rule it out.
+- For paper, practice, demo, simulated trades, or trading without real money, load [coinbase-paper-trading](../coinbase-paper-trading/SKILL.md) before live-account guidance. It uses the bundled `coinbase-paper` command with public market data and local virtual cash, not live order tools, MCP, or credentials. A live-only MCP environment does not rule it out.
 - “Can I paper trade?” requests information/readiness only, not account creation or a test trade. Check actual installation; do not claim a skill is installed merely because files exist.
 - For an ambiguous buy/sell in a new conversation, ask paper versus live before acting. An unambiguous follow-up in an established paper conversation stays paper; an explicit switch to real funds requires separate live authorization and approval.
-- A local paper account is not a global trading-mode toggle. Preserve its saved profile and expected account ID across bots sharing authorized storage. Missing expected state means recovery, never automatic initialization.
+- A local paper account is not a global trading-mode toggle. Preserve its data directory and expected account ID across bots sharing authorized storage. Missing expected state means recovery, never automatic initialization.
 - Never use live order, preview, conversion, transfer, or payment tools for paper requests. Instructions are not permission enforcement; retain host approvals and use read-only restrictions where available.
 
 ## Select the interface before acting
@@ -52,7 +52,7 @@ MCP can perform multistep workflows through successive calls. A multistep task i
 | [coinbase-futures](../coinbase-futures/SKILL.md) | Eligible CFM dated futures and margin risk | CLI / MCP |
 | [coinbase-x402](../coinbase-x402/SKILL.md) | Discover and pay for curated research | CLI / MCP, subject to client/account support |
 | [coinbase-watch](../coinbase-watch/SKILL.md) | Bounded streaming/conditional monitoring | CLI only; no remote MCP subscription |
-| [coinbase-paper-trading](../coinbase-paper-trading/SKILL.md) | Simulated spot market orders with virtual cash | Read-only MCP data plus bundled local Python; never a live order |
+| [coinbase-paper-trading](../coinbase-paper-trading/SKILL.md) | Simulated spot market orders with virtual cash | Bundled `coinbase-paper` command (public data, local Python); optional legacy MCP handoff; never a live order |
 
 ## Disconnect
 

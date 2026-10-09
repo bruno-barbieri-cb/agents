@@ -993,7 +993,7 @@ class SkillDocumentationTest(unittest.TestCase):
         header = match.group(1)
         self.assertIn("name: coinbase-paper-trading", header)
         self.assertRegex(header, r"\n  author: Coinbase\n")
-        self.assertRegex(header, r"\n  version: 1\.1\.0(\n|$)")
+        self.assertRegex(header, r"\n  version: 1\.2\.0(\n|$)")
 
     def test_paper_workflow_uses_only_read_only_tools(self) -> None:
         for name, text in self.documents().items():
@@ -1008,9 +1008,10 @@ class SkillDocumentationTest(unittest.TestCase):
         skill = self.documents()["SKILL.md"]
         for phrase in (
             "PAPER",
+            "bin/coinbase-paper",
             "--state",
             "60 seconds",
-            "same `request_id`",
+            "same `--request-id`",
             "never places real orders",
         ):
             self.assertIn(phrase.casefold(), skill.casefold())
@@ -1018,12 +1019,29 @@ class SkillDocumentationTest(unittest.TestCase):
         for command in (
             "doctor",
             "init",
-            "trade --request",
-            "status",
+            "bind --state ABS --account-id ID",
+            "buy PRODUCT",
+            "sell PRODUCT --base-size N --request-id UUID",
+            "status [--refresh]",
             "history",
-            "backup --output",
+            "backup --output ABS",
+            "candles PRODUCT",
         ):
             self.assertIn(command, cli)
+        # The optional legacy route still documents the offline engine.
+        legacy = self.documents()["mcp.md"]
+        for command in (
+            "scripts/paper.py",
+            "--profile",
+            "doctor",
+            "init",
+            "trade --request",
+            "status [--books FILE]",
+            "history",
+            "backup --output",
+            "same `request_id`",
+        ):
+            self.assertIn(command, legacy)
 
     def test_entry_skill_routes_to_paper_trading(self) -> None:
         self.assertIn(

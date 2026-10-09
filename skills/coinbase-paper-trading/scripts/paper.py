@@ -327,6 +327,15 @@ def parse_product(raw, product_id, currency):
 
 
 def parse_intent(request):
+    intent = normalize_intent(request)
+    for key in ("product", "book"):
+        if key not in request:
+            raise PaperError("INVALID_REQUEST", f"{key} response is required")
+    return intent
+
+
+def normalize_intent(request):
+    """Validate and canonicalize trade terms; market data is not required here."""
     if not isinstance(request, dict):
         raise PaperError("INVALID_REQUEST", "trade request must be a JSON object")
     unknown = sorted(set(request) - REQUEST_KEYS)
@@ -355,9 +364,6 @@ def parse_intent(request):
     if side == "SELL" and size_type != "base_size":
         raise PaperError("INVALID_REQUEST", "SELL requires base_size")
     size = parse_decimal(request[size_type], size_type)
-    for key in ("product", "book"):
-        if key not in request:
-            raise PaperError("INVALID_REQUEST", f"{key} response is required")
     return {
         "request_id": str(uuid.UUID(request_id)),
         "account_id": account_id,
@@ -873,6 +879,45 @@ def execute(account, position, intent, request, now):
     return receipt, new_cash, realized_total, new_position
 
 
+def intent_record(intent):
+    """The order terms stored with each receipt (request_id is the row key)."""
+    return json.dumps(
+        {k: v for k, v in intent.items() if k != "request_id"}, sort_keys=True
+    )
+
+
+def find_receipt(state, intent, expected_account_id=None):
+    """Return the committed receipt for a normalized intent, or None. Read-only."""
+    conn, account = open_state(state, expected_account_id)
+    try:
+        if intent["account_id"] != account["account_id"]:
+            raise PaperError(
+                "ACCOUNT_MISMATCH",
+                "request account_id does not match the selected paper account",
+            )
+        row = conn.execute(
+            "SELECT intent, receipt FROM orders WHERE request_id = ?",
+            (intent["request_id"],),
+        ).fetchone()
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc) or "busy" in str(exc):
+            raise PaperError(
+                "STATE_BUSY", "paper state is busy; retry the same request"
+            ) from None
+        raise PaperError("STATE_INVALID", "paper state could not be read") from None
+    except sqlite3.DatabaseError:
+        raise PaperError("STATE_INVALID", "paper state could not be read") from None
+    finally:
+        conn.close()
+    if row is None:
+        return None
+    if row[0] != intent_record(intent):
+        raise PaperError(
+            "IDEMPOTENCY_CONFLICT", "request_id was already used for different terms"
+        )
+    return json.loads(row[1])
+
+
 def trade(state, request, now=utcnow, expected_account_id=None):
     intent = parse_intent(request)
     conn, account = open_state(state, expected_account_id)
@@ -885,9 +930,7 @@ def trade(state, request, now=utcnow, expected_account_id=None):
                     "ACCOUNT_MISMATCH",
                     "request account_id does not match the selected paper account",
                 )
-            intent_json = json.dumps(
-                {k: v for k, v in intent.items() if k != "request_id"}, sort_keys=True
-            )
+            intent_json = intent_record(intent)
             existing = conn.execute(
                 "SELECT intent, receipt FROM orders WHERE request_id = ?",
                 (intent["request_id"],),

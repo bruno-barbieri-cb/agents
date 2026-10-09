@@ -27,9 +27,13 @@ PAPER_FILES = (
     "references/connector-instructions.md",
     "references/qa.md",
     "scripts/paper.py",
+    "scripts/paper_cli.py",
+    "scripts/public_data.py",
+    "bin/coinbase-paper",
 )
 REQUIRED_SKILL_FILES = {PAPER_SKILL: PAPER_FILES}
-EXCLUDED_PATTERNS = ("__pycache__", "*.pyc", "*.pyo")
+EXECUTABLE_SKILL_FILES = {PAPER_SKILL: ("bin/coinbase-paper",)}
+EXCLUDED_PATTERNS = ("__pycache__", "*.pyc", "*.pyo", ".DS_Store")
 FORBIDDEN_SUFFIXES = (".pyc", ".pyo", ".db", ".sqlite", ".sqlite3", "-journal", "-wal")
 PRERELEASE_IDENTIFIER = r"(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
 SEMVER = re.compile(
@@ -148,6 +152,22 @@ def validate_skills(root: Path, standalone: bool = False) -> None:
         for required in REQUIRED_SKILL_FILES.get(skill_name, ()):
             if not (skill / required).is_file():
                 raise ValueError(f"missing skill file: {skill / required}")
+        if skill_name == PAPER_SKILL:
+            # Allowlist: no account state, saved requests, profiles, or extras.
+            found = {
+                path.relative_to(skill).as_posix()
+                for path in skill.rglob("*")
+                if not path.is_dir()
+            }
+            if standalone:
+                found -= {"LICENSE"}
+            if found != set(PAPER_FILES):
+                raise ValueError(f"unexpected paper skill contents: {skill}")
+        for executable in EXECUTABLE_SKILL_FILES.get(skill_name, ()):
+            if not (skill / executable).stat().st_mode & 0o100:
+                raise ValueError(
+                    f"skill launcher is not executable: {skill / executable}"
+                )
         text = skill_file.read_text()
         match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
         if not match:

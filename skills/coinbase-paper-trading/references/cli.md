@@ -1,62 +1,70 @@
-# Local paper simulator
+# coinbase-paper command
 
-Apply the [paper workflow](../SKILL.md). This reference documents the bundled `scripts/paper.py`, not the Coinbase CLI. It needs only Python 3.11+, without credentials, network access, or extra packages.
+Apply the [paper workflow](../SKILL.md). This reference documents the bundled `bin/coinbase-paper` launcher, not the Coinbase CLI. It needs only Python 3.11+ with SQLite and public HTTPS access; no login, API key, credentials, MCP connection, or extra packages.
 
-After installation, every call names the script and saved account profile by absolute path:
-
-```sh
-python3 /abs/skill/scripts/paper.py --profile /abs/paper/profiles/default.json COMMAND
-```
-
-The state file is SQLite on a writable local filesystem with hard-link support. It must be outside the installed skill directory, and each file holds one account. Name the database file itself, not a symlink. The script never resets or deletes state. A missing, corrupt, or unsupported file returns an error and is never recreated.
-
-The profile is a small JSON locator, not another ledger: `{"version":1,"state":"/abs/paper/account.sqlite3","account_id":"paper-<uuid>"}`. The engine verifies the expected ID when opening the database, including before a trade inside its transaction. Missing or mismatched accounts fail closed. No default path is guessed. `--state` is still supported for deliberate first setup, diagnostics, and recovery; use the installed profile for routine commands.
-
-## Bind once; resume from any authorized bot
-
-Inspect an existing account first. Only if the user explicitly wants a genuinely new account, run `init` at a new path. Then bind the verified ID returned by `doctor` or `init`:
+Run the launcher by its absolute installed path. It resolves its sibling `scripts/` runtime from its own real file location, so the current directory does not matter and symlinks to it work. Nothing is added to `PATH`.
 
 ```sh
-python3 /abs/skill/scripts/paper.py --state /abs/paper/account.sqlite3 doctor
-# For a genuinely new account only:
-python3 /abs/skill/scripts/paper.py --state /abs/paper/account.sqlite3 init --cash 10000 --currency USD --fee-bps 10
-# Bind the existing account; substitute its actual ID:
-python3 /abs/skill/scripts/paper.py bind --state /abs/paper/account.sqlite3 --profile /abs/paper/profiles/default.json --account-id "paper-<uuid>"
-python3 /abs/skill/scripts/paper.py --profile /abs/paper/profiles/default.json status
+/abs/coinbase-paper-trading/bin/coinbase-paper --data-dir /abs/paper-data doctor
+# If the executable bit was lost in transfer:
+python3 /abs/coinbase-paper-trading/bin/coinbase-paper --data-dir /abs/paper-data doctor
 ```
 
-Do not run this block blindly: `doctor` returning MISSING does not prove the user has no prior account. `bind` requires a valid existing account and the matching ID. Repeating the same binding is safe; binding a different path/ID at an existing profile is rejected. `init --profile` is always rejected. Profiles and newly created directories are private; existing unrelated directory permissions are unchanged.
+Both forms require Python 3.11+. If `python3` is an older system interpreter, use an already installed supported interpreter explicitly, for example `python3.13 /abs/coinbase-paper-trading/bin/coinbase-paper ...`; do not install or replace Python without permission. The public-data client uses direct HTTPS and deliberately does not discover proxy settings or proxy credentials. It rejects redirects and never loads Coinbase credentials.
 
-`doctor` returning `ok: true` means the diagnostic ran, not that paper trading is ready. With `--state`, inspect `state_status`: MISSING means no account at that path. With a configured `--profile`, missing state is an error. Even `state_status: OK` does not verify host persistence, market-data access, or permission controls; those requirements must be checked separately.
+## Data directory
+
+One account per data directory. The directory is selected in this order:
+
+1. `--data-dir ABS` (must be absolute; relative paths are rejected).
+2. `COINBASE_PAPER_HOME`.
+3. `$XDG_DATA_HOME/coinbase-paper`.
+4. `~/.local/share/coinbase-paper`.
+
+Choose one stable directory per OS user on durable storage, outside installed code and repositories; not one per conversation or working directory. Environment variables set in one tool call need not exist in the next, so pass `--data-dir` when the recorded directory is not the default. The command does not infer VM durability from the path.
+
+Inside the directory, `account.sqlite3` is the engine database, `profile.json` pins its expected account ID, and `requests/` holds one private immutable intent per request ID. The engine's committed receipt in the database is the authoritative result. No other ledger or snapshot database is kept.
+
+Use one data directory for all bots writing a particular account. Pending intents are protected **within that data directory**; binding the same database elsewhere or using the low-level engine does not share those pending files. Committed request IDs are protected by the database across bindings. Do not switch directories or interfaces to retry an uncertain/unfilled order.
+
+## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `doctor` | Check runtime and state health. Never creates an account. |
-| `init --cash 10000 --currency USD --fee-bps 10` | Create a new account and return `account_id`. Refuses an existing file. |
-| `bind --state FILE --profile FILE --account-id ID` | Save an existing account's path and expected ID. Creates no virtual cash. |
-| `trade --request FILE` | Fill or reject a saved request in one atomic step. `--request -` reads stdin. |
-| `status [--books FILE]` | Show cash, positions, average cost, and realized, unrealized, and total P&L, plus equity. |
-| `history [--limit N]` | Return recent orders as `{"orders": [...]}`. |
-| `backup --output FILE` | Write a consistent copy to a new absolute path. Never overwrites. |
+| `--help`, `--version` | Print usage or version. Create no state; use no network. |
+| `doctor` | Read-only runtime, path, and account diagnostic. Never initializes or uses the network. Reports unbound or missing state and that host persistence is unverified. |
+| `init [--cash 10000] [--currency USD] [--fee-bps 10]` | Create and bind a new account. Refuses an existing profile or database. |
+| `bind --state ABS --account-id ID` | Adopt an existing v1.0/v1.1 database into this directory's profile after verifying its ID. No copy, overwrite, or new cash. |
+| `buy PRODUCT (--base-size N \| --quote-size N) --request-id UUID` | Fetch public product and book data, then fill or reject a virtual buy. `--quote-size` includes fees. |
+| `sell PRODUCT --base-size N --request-id UUID` | Fetch public data, then fill or reject a virtual sell. Base size only. |
+| `status [--refresh]` | Offline by default with unpriced marks. `--refresh` fetches current books for open positions. |
+| `history [--limit N]` | Recent paper orders as `{"orders": [...]}`. |
+| `backup --output ABS` | Write a consistent database copy to a new absolute path. Never overwrites. |
+| `candles PRODUCT --start UNIX --end UNIX --granularity ENUM` | Bounded public candle research. Needs no account; never used for fills or marks. |
+
+`doctor` reports local account health, not host certification. `ready: true` means only that the saved account is bound and readable; `persistence` remains `UNVERIFIED`. `ok: true` means no invalid configured state was found, and can accompany a missing/unbound account (`ready: false`). A corrupt binding, missing bound database, or account-ID mismatch returns `ok: false` and exits nonzero. Storage retention, network reachability, and permission controls are separate checks.
+
+`status --refresh` is all-or-error for malformed/unavailable books and supports at most 100 open positions. It never substitutes a price or changes the ledger. If it fails, use offline `status` to inspect cash and positions with unpriced marks; do not report stale or invented equity.
+
+Candle granularities are `ONE_MINUTE`, `FIVE_MINUTE`, `FIFTEEN_MINUTE`, `THIRTY_MINUTE`, `ONE_HOUR`, `TWO_HOUR`, `FOUR_HOUR`, `SIX_HOUR`, and `ONE_DAY`. Each request spans at most 350 intervals and returns at most 350 validated OHLCV records. Only numeric `start`, `low`, `high`, `open`, `close`, and `volume` strings are shown; extra response metadata is discarded.
 
 ## Output
 
-Success prints JSON with `"mode": "PAPER"`. All money and size values are decimal strings. Report them as given; do not convert them to floats.
+Success and errors print JSON on stdout labeled `"mode": "PAPER"`, except `--help` and `--version`. Errors exit nonzero with an error code and message. All money and size values are decimal strings; report them as given and do not convert them to floats.
 
-- `trade` receipts and `history.orders` entries include `request_id`, `account_id`, `product_id`, `side`, `base_size`, `notional`, `fee`, `cash`, and `snapshot_time`.
-- `average_price` is the depth-weighted fill price before cash rounding and fees. Buy notional rounds up to the quote increment, sell notional rounds down, and fees round up on the rounded notional. Partial-sale cost basis is allocated proportionally, rounded half-even; a full close removes the remaining basis.
-- `status` includes `account_id`, `currency`, `initial_cash`, `cash`, `fee_bps`, `realized_pnl`, `unrealized_pnl`, `total_pnl`, `equity`, and `positions`. Each position includes `product_id`, `quantity`, `cost_basis`, `average_cost`, `mark`, `market_value`, `unrealized_pnl`, and its mark status and time. With no fresh mark, the valuation fields are `null`; they are never valued at cost. With no positions, equity equals cash.
+- Receipts and `history.orders` entries include `request_id`, `account_id`, `product_id`, `side`, `base_size`, `notional`, `fee`, `cash`, and `snapshot_time`.
+- `status` includes `account_id`, `currency`, `initial_cash`, `cash`, `fee_bps`, `realized_pnl`, `unrealized_pnl`, `total_pnl`, `equity`, and `positions`. Unpriced positions have `null` valuation fields; they are never valued at cost.
 
-Errors print JSON with an error code and message and exit nonzero. A rejected trade changes nothing. Report the code. Do not loosen the request to get it through.
+A rejected trade changes nothing. Report the code; do not loosen the order to get it through. Error messages never repeat raw API bodies or remote instructions. Inputs use plain decimal strings, not exponent notation. Product minimums apply to the notional before fees; explain `BELOW_MINIMUM` rather than raising the user's budget.
 
-`STATE_PATH_UNAVAILABLE` means the location cannot create state or a backup. Choose a writable local filesystem with hard-link support; do not change permissions on unrelated directories. `STATE_BUSY` means another process holds the database; retry the same request, not a new ID.
+## Retries and recovery
 
-`PROFILE_NOT_FOUND`, `PROFILE_INVALID`, `STATE_NOT_FOUND`, and `ACCOUNT_MISMATCH` on a configured profile require recovery, not new initialization. `PROFILE_EXISTS` refuses a different binding. `PROFILE_PATH_UNAVAILABLE` means the filesystem cannot safely create the locator. Report the code and preserve existing files.
+Validation and the saved profile/account check happen before any network request. The intent (request ID, account, product, side, normalized size) is saved before the first execution attempt and never changes.
 
-Inputs use plain decimal strings with up to 15 integer and 18 fractional digits, not exponent notation. Product minimums apply to the notional before fees, so a budget equal to the product's minimum can be too small once fees are included. Explain `BELOW_MINIMUM`; do not increase the user's budget automatically.
+- An uncertain, interrupted, or network-failed order is retried with the **exact same command and `--request-id`**. A completed request returns its exact original receipt without fetching data, even offline. Concurrent runs of the same request fill once.
+- In the same data directory, the same ID with different terms is rejected even when no fill happened. A committed ID is protected in the database as well. Two different IDs are two orders, even when their terms match.
+- A stale or unavailable book with no fill: rerun the same command later with the same ID. Do not switch to the legacy route for that ID.
+- A rejected attempt does not consume the ID; retrying the same terms can fill later if conditions change. Retry only when still authorized by the user.
+- Missing, corrupt, or mismatched `profile.json` or database means stop and recover. Never run `init` to work around it. `STATE_BUSY` means another process holds the database; retry the same request.
 
-## Idempotency and recovery
-
-The script checks the `request_id` before market freshness. Rerunning a completed request returns the original receipt, even with a stale or refreshed book. Reusing an ID with a different account, product, side, or size is rejected as a conflict. Concurrent runs of the same file fill once. Two different IDs are two orders, even when their terms match.
-
-Keep the original database and profile. To inspect a backup, pass its path as `--state`; account and completed request IDs are preserved. If the user approves resuming that backup, verify its ID and bind it at a **new** profile path, then update the host's recorded locator explicitly. Do not automatically overwrite an old binding, delete state, or run two writable copies of the same account as if they were synchronized. Back up the locator and database separately; `backup` copies the database only.
+Keep the original data directory, including `requests/`. `backup` copies the database only, not pending intents or the profile. Before deliberate recovery, stop other writers and resolve uncertain orders against the newest available original database; an older backup cannot prove that a later fill never happened. To resume an approved backup, bind it into a **new** `--data-dir`, preserve the original request files in the replacement directory without overwriting conflicting files, verify the account ID, then explicitly update the host's recorded directory. Never retry while the original account is still writable elsewhere. If requests or the latest outcome cannot be recovered, stop and ask rather than retrying through a new directory or generating new IDs.

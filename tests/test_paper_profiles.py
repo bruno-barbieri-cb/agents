@@ -15,6 +15,8 @@ from pathlib import Path
 
 from test_paper_workflow import ENGINE, ROOT, SKILL, TIMEOUT, PaperCLITestCase, book
 
+VERSION = "1.2.0"
+
 
 class ProfileTest(PaperCLITestCase):
     def setUp(self):
@@ -344,6 +346,9 @@ class PaperOnlyPackageTest(unittest.TestCase):
         "references/connector-instructions.md",
         "references/qa.md",
         "scripts/paper.py",
+        "scripts/paper_cli.py",
+        "scripts/public_data.py",
+        "bin/coinbase-paper",
         "LICENSE",
         "SHA256SUMS",
     }
@@ -369,7 +374,7 @@ class PaperOnlyPackageTest(unittest.TestCase):
                 packages = list((output / "site/packages").iterdir())
                 self.assertEqual(len(packages), 1)
                 package = packages[0]
-                self.assertEqual(package.name, "coinbase-paper-trading-v1.1.0")
+                self.assertEqual(package.name, f"coinbase-paper-trading-v{VERSION}")
                 self.assertEqual(
                     {
                         path.relative_to(package).as_posix()
@@ -412,17 +417,19 @@ class PaperOnlyPackageTest(unittest.TestCase):
                     )
                 builds.append(downloads)
             for suffix in ("zip", "tar.gz"):
-                name = f"coinbase-paper-trading-v1.1.0.{suffix}"
+                name = f"coinbase-paper-trading-v{VERSION}.{suffix}"
                 self.assertEqual(
                     (builds[0] / name).read_bytes(), (builds[1] / name).read_bytes()
                 )
             with zipfile.ZipFile(
-                builds[0] / "coinbase-paper-trading-v1.1.0.zip"
+                builds[0] / f"coinbase-paper-trading-v{VERSION}.zip"
             ) as archive:
                 archive.extractall(
                     root / "extracted"
                 )  # Only our just-built, allowlisted archive.
-            engine = root / "extracted/coinbase-paper-trading-v1.1.0/scripts/paper.py"
+            engine = (
+                root / f"extracted/coinbase-paper-trading-v{VERSION}/scripts/paper.py"
+            )
             result = subprocess.run(
                 [
                     sys.executable,
@@ -459,7 +466,8 @@ class PaperOnlyPackageTest(unittest.TestCase):
         self.assertIn("new conversations", guide)
         self.assertIn("Unknown persistence blocks", host)
         self.assertIn("{{SKILL_PATH}}", connector)
-        self.assertIn("{{PROFILE_PATH}}", connector)
+        self.assertIn("{{LAUNCHER_PATH}}", connector)
+        self.assertIn("{{DATA_DIR}}", connector)
         self.assertIn("information/readiness", connector)
         entry = (ROOT / "skills/coinbase/SKILL.md").read_text()
         self.assertLess(
