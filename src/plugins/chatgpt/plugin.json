@@ -1,0 +1,31 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "coinbase",
+  "version": "0.0.1",
+  "description": "Coinbase workflows through remote MCP. Market data, portfolios, trading, conversions, and x402; financial actions require explicit authorization.",
+  "author": { "name": "Coinbase" },
+  "homepage": "https://www.coinbase.com",
+  "repository": "https://github.com/coinbase/agents",
+  "license": "MIT",
+  "keywords": ["coinbase", "mcp", "trading", "portfolios", "x402"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Coinbase",
+        "shortDescription": "Coinbase account workflows",
+        "longDescription": "Workflows for portfolios, market data, authorized trading, conversions, and budgeted x402 research through Coinbase's remote MCP server with OAuth.",
+        "developerName": "Coinbase",
+        "category": "Finance",
+        "capabilities": ["Read", "Write"],
+        "logo": "./com.openai/assets/coinbase.svg",
+        "composerIcon": "./com.openai/assets/coinbase.svg",
+        "brandColor": "#0052FF",
+        "websiteURL": "https://www.coinbase.com",
+        "supportURL": "https://help.coinbase.com/en",
+        "privacyPolicyURL": "https://www.coinbase.com/legal/privacy",
+        "termsOfServiceURL": "https://www.coinbase.com/legal/user_agreement/united_states",
+        "defaultPrompt": ["Connect Coinbase and list my portfolios. Do not trade or spend funds."]
+      }
+    }
+  }
+}
