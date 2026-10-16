@@ -1,11 +1,6 @@
----
-name: coinbase-equities
-description: Plan and manage eligible Coinbase stock or ETF orders through remote MCP or local CLI. Use for equity product selection, regular/extended sessions, whole-share constraints, trade dates, halts, and unavailable previews. These are real orders.
----
+# Coinbase CLI: equities
 
-# Coinbase equities
-
-Follow [Coinbase interface selection](../coinbase/SKILL.md) and the [shared trading workflow](../coinbase-trading/SKILL.md). Load only the [MCP reference](references/mcp.md) or [CLI reference](references/cli.md). Equity support is account-, product-, and interface-dependent.
+First follow [Coinbase CLI setup and safety](../SKILL.md). Use only Coinbase CLI for this workflow; do not switch products or credentials to retry an uncertain financial write. Follow the [Coinbase CLI trading workflow](trading.md) before planning these orders.
 
 ## Plan the equity-specific terms
 
@@ -20,3 +15,19 @@ Follow [Coinbase interface selection](../coinbase/SKILL.md) and the [shared trad
 Equity previews can be unavailable. Report the missing estimate; do not repeatedly retry or call create as a test. If the user requires a preview, stop. An explicitly approved order without a preview still needs all session, sizing, portfolio, and risk checks. Do not assume preview validated fields it did not accept.
 
 Retain `client_order_id` before submission, obtain approval for the full plan, and inspect actual order state/fills afterward. Ask before changing timing, session, size, or type after rejection. Inspect each edit/cancel result; create support does not prove edit/cancel eligibility. Unknown outcomes follow the shared trading recovery rules, without switching interfaces.
+
+## CLI execution
+
+Inspect current help/templates and product metadata:
+
+```sh
+coinbase products list --help
+coinbase orders create --template
+coinbase orders preview --template
+```
+
+Discover listings with the supported EQUITY filter, then read `coinbase products get <TICKER-QUOTE>` and the intended portfolio. Build the approved request using the current template, including the retained `client_order_id`, intended portfolio where supported, exact product, and equity session/date fields.
+
+For extended sessions, validate whole-share `base_size`, limit price, GTD/expiry, and trade date against the installed version/backend. Current source create and preview expose `time_in_force` / `end_time`, while older installed templates can differ. If a required field is unavailable, stop rather than omit it. Apply `COINBASE_NO_HISTORY=1` and inspect all actual fields locally; `--dry-run` neither validates them nor displays a raw-file body, and does not establish an open session or exchange preview support.
+
+Do not inherit the old assumption that preview failure means "go straight to create." Follow the shared approval rules, then inspect `coinbase orders get <order_id>` and fills after submission. Keep the same environment throughout recovery.

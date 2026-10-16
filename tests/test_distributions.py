@@ -92,6 +92,35 @@ class DistributionTests(unittest.TestCase):
                 (ROOT / "src/plugins/portable/mcp.json").read_bytes(),
             )
 
+    def expected_packaged_skills(self):
+        skills = [
+            ROOT / "skills/coinbase",
+            ROOT / "skills/coinbase-cli",
+            ROOT / "skills/coinbase-mcp",
+        ]
+        return {
+            Path(skill.name) / path.relative_to(skill): path.read_bytes()
+            for skill in skills
+            for path in skill.rglob("*")
+            if path.is_file()
+        }
+
+    def test_source_router_and_readme_list_products_not_capability_skills(self):
+        router = ROOT / "skills/coinbase/SKILL.md"
+        self.assertIn("name: coinbase\n", router.read_text())
+        for document in (router, ROOT / "README.md"):
+            text = document.read_text()
+            self.assertIn("| Product |", text)
+            for product in ("coinbase-cli", "coinbase-mcp"):
+                self.assertIn(f"{product}/SKILL.md", text)
+                self.assertNotIn(f"{product}/{product}/", text)
+                self.assertNotIn(f"{product}-trading/SKILL.md", text)
+        for product in ("coinbase-cli", "coinbase-mcp"):
+            entry = ROOT / "skills" / product / "SKILL.md"
+            self.assertIn(f"name: {product}\n", entry.read_text())
+            self.assertIn("](references/trading.md)", entry.read_text())
+        builder.validate_links(ROOT)
+
     def test_chatgpt_uses_channel_mcp_endpoint(self):
         config = builder.load_json(self.chatgpt / "mcp.json")
         self.assertEqual(
@@ -118,17 +147,46 @@ class DistributionTests(unittest.TestCase):
                     builder.validate_chatgpt(self.chatgpt, self.version)
 
     def test_chatgpt_reuses_canonical_skills(self):
-        expected = {
-            path.relative_to(ROOT / "skills"): path.read_bytes()
-            for path in (ROOT / "skills").rglob("*")
-            if path.is_file()
-        }
+        expected = self.expected_packaged_skills()
         actual = {
             path.relative_to(self.chatgpt / "skills"): path.read_bytes()
             for path in (self.chatgpt / "skills").rglob("*")
             if path.is_file()
         }
         self.assertEqual(actual, expected)
+
+    def test_all_distributions_preserve_flat_skill_layout(self):
+        portable = self.root / "portable"
+        claude = self.root / "claude"
+        codex = self.root / "codex"
+        builder.build_portable(portable)
+        builder.build_claude(claude)
+        builder.build_codex(codex, portable)
+        expected = self.expected_packaged_skills()
+        for package in (portable, claude, codex / "plugins/coinbase", self.chatgpt):
+            with self.subTest(package=package):
+                builder.validate_skills(package)
+                builder.validate_links(package)
+                actual = {
+                    path.relative_to(package / "skills"): path.read_bytes()
+                    for path in (package / "skills").rglob("*")
+                    if path.is_file()
+                }
+                self.assertEqual(actual, expected)
+                self.assertTrue((package / "skills/coinbase/SKILL.md").is_file())
+                self.assertEqual(
+                    {path.parts[0] for path in actual if path.name == "SKILL.md"},
+                    {"coinbase", "coinbase-cli", "coinbase-mcp"},
+                )
+                references = {path for path in actual if "references" in path.parts}
+                self.assertEqual(len(references), 15)
+                router = (package / "skills/coinbase/SKILL.md").read_text()
+                for product in ("coinbase-cli", "coinbase-mcp"):
+                    self.assertTrue(
+                        (package / "skills" / product / "SKILL.md").is_file()
+                    )
+                    self.assertIn(f"](../{product}/SKILL.md)", router)
+                self.assertTrue(all(path.suffix == ".md" for path in actual))
 
     def test_chatgpt_icon_preserves_artwork_at_larger_dimensions(self):
         source = ET.parse(ROOT / "assets/coinbase.svg").getroot()
