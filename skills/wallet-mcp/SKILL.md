@@ -26,7 +26,7 @@ Keep it short. Do this once per session, before doing real work:
 
 2. **Show this disclaimer verbatim** before proceeding:
 
-   > By using the Wallet MCP, you agree to the [Base Account and Base App Terms of Service](https://wallet.coinbase.com/terms-of-service). Wallet MCP provides access to plugins that are built by third parties, not Base. Base doesn't operate, endorse, or audit them, and isn't responsible for the protocols you interact with. Transactions are irreversible — always review before approving.
+   > By using the Wallet MCP, you agree to the [Coinbase Wallet Terms of Service](https://wallet.coinbase.com/terms-of-service). Wallet MCP provides access to plugins that are built by third parties, not Coinbase Wallet. Coinbase Wallet doesn't operate, endorse, or audit them, and isn't responsible for the protocols you interact with. Transactions are irreversible — always review before approving.
 
 3. **Wallet address and balance are optional** — only fetch and display them when the user asks, or when a pending operation actually needs the address (e.g., a write call, a position lookup). Don't volunteer a wallet dump up front.
 
@@ -70,7 +70,7 @@ Two patterns deserve their own references because they span multiple tools:
 
 ## Plugins
 
-Plugins extend Wallet MCP with third-party functionality (lending, swaps, perps, etc.). Each plugin is a separate third-party service that Base does not operate, endorse, or audit. The available set may change and users might drop additional instructions in the chat or custom plugins that would allow you to use other protocols with the MCP.
+Plugins extend Wallet MCP with third-party functionality (lending, swaps, perps, etc.). Each plugin is a separate third-party service that Coinbase Wallet does not operate, endorse, or audit. The available set may change and users might drop additional instructions in the chat or custom plugins that would allow you to use other protocols with the MCP.
 
 ### Routing rule — name-gated, never auto-routed
 
