@@ -26,6 +26,7 @@ In approval mode, every write call (send, swap, sign, batched calls, and any plu
 4. **Wait for the user to confirm they approved.** Don't poll in a tight loop while they're still acting.
 5. **Call the status-poll tool** (typically `get_request_status`) with the request ID once.
 6. **Only report success** when the status tool confirms completion.
+   - **Solana `send` / `swap`:** the status tool never reports completion. It returns `signed` (approved and being sent) with a `solanaState`. Confirm the outcome with `get_transaction_history` on `chain: solana` before reporting success, and don't start the same send or swap again while it may still be in flight.
 
 ## Common mistakes
 
